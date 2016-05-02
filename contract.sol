@@ -110,7 +110,7 @@ contract BuyOffer {
 	function completeBuyOffer() {
 		if (msg.sender == buyer) {
 			// Buyer needs to transfer 3% extra as transaction fees
-			if(taken && msg.value >= (noOfShares * pricePerShare) * 1.03) {
+			if(taken && msg.value >= (noOfShares * pricePerShare * 103 / 100 )) {
 				EquityCounter con = EquityCounter(equityCounter);
 				if (con.transferShares(this)) {
 					// Transfer money if transfer of shares is successful
