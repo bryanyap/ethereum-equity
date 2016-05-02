@@ -31,10 +31,13 @@ contract EquityCounter {
 
 	// Add a new BuyOrder into the list
 	function linkBuyContract(address _address) returns (bool success) {
-		BuyOffer con = BuyOffer(_address);
-		buyOffers[noOfOrders] = BuyOffer(_address);
-		noOfOrders += 1;
-		return true;
+		if (isLinked(_address) == false) {
+			BuyOffer con = BuyOffer(_address);
+			buyOffers[noOfOrders] = BuyOffer(_address);
+			noOfOrders += 1;
+			return true;
+		}
+		return false;
 	}
 
 	// Issue new shares to an account
@@ -62,6 +65,16 @@ contract EquityCounter {
 		return false;
 	}
 
+	// Check if address is BuyOffer is linked to EquityCounter contract
+	function isLinked(address _buyOffer) returns (bool success) {
+		for (uint i = 0; i < noOfOrders; i++) {
+			if (buyOffers[i] == _buyOffer) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	function getStockBalance(address _account) returns (uint balance) {
 		return stockAccounts[_account];
 	}
@@ -84,6 +97,8 @@ contract BuyOffer {
 	
 	bool public withdrawn;
 
+	bool public linked;
+
 	// Initialize BuyOffer, buyer creates a contract at some address on the Ethereum blockchain
 	function BuyOffer(uint _noOfShares, uint _pricePerShare, address _equityCounter) returns (bool success) {
 		buyer = msg.sender;
@@ -97,14 +112,16 @@ contract BuyOffer {
 		
 		EquityCounter con = EquityCounter(equityCounter);
 		if (con.linkBuyContract(this)) {
+			linked = true;
 			return true;
 		}
+		linked = false;
 		return false;
 	}
 	
 	// Seller takes the BuyOffer to reserve it
 	function takeBuyOffer() returns (bool success) {
-		if (!taken && !withdrawn) {
+		if (linked && !taken && !withdrawn) {
 			EquityCounter con = EquityCounter(equityCounter);
 			if (con.getStockBalance(msg.sender) >= noOfShares) {
 				seller = msg.sender;
@@ -117,7 +134,7 @@ contract BuyOffer {
 	
 	// Buyer completes the BuyOffer, resulting in ether for shares transfer
 	function completeBuyOffer() returns (bool success) {
-		if (msg.sender == buyer) {
+		if (linked && msg.sender == buyer) {
 			// Buyer needs to transfer 3% extra as transaction fees
 			if(taken && msg.value >= (noOfShares * pricePerShare * 103 / 100 )) {
 				EquityCounter con = EquityCounter(equityCounter);
@@ -134,7 +151,7 @@ contract BuyOffer {
 	
 	// Buyer can withdraw the BuyOffer if it is not taken
 	function withdraw() returns (bool success) {
-		if (msg.sender == buyer) {
+		if (linked && msg.sender == buyer) {
 			if (!taken) {
 				withdrawn = true;
 				return true;
