@@ -44,17 +44,18 @@ contract EquityCounter {
 	}
 	
 	// Transfer shares from own account into another account
-	function transferShares(address _buyOffer) {
+	function transferShares(address _buyOffer) returns (bool success) {
 		for (uint i = 0; i < noOfOrders; i++) {
 			if (buyOffers[i] == _buyOffer) {
 				BuyOffer buyOffer = BuyOffer(_buyOffer);
 				if (buyOffer.noOfShares() <= stockAccounts[buyOffer.seller()]) {
 					stockAccounts[buyOffer.seller()] -= buyOffer.noOfShares();
 					stockAccounts[buyOffer.buyer()] += buyOffer.noOfShares();
+					return true;
 				}
-				break;
 			}
 		}
+		return false;
 	}
 
 	function getStockBalance(address _account) returns (uint balance) {
@@ -108,10 +109,14 @@ contract BuyOffer {
 	// Buyer completes the BuyOffer, resulting in ether for shares transfer
 	function completeBuyOffer() {
 		if (msg.sender == buyer) {
-			if(taken) {
+			// Buyer needs to transfer 3% extra as transaction fees
+			if(taken && msg.value >= (noOfShares * pricePerShare) * 1.03) {
 				EquityCounter con = EquityCounter(equityCounter);
-				con.transferShares(this);
-				done = true;
+				if (con.transferShares(this)) {
+					// Transfer money if transfer of shares is successful
+					seller.send(noOfShares * pricePerShare);
+					done = true;
+				} 
 			}
 		}
 	}
