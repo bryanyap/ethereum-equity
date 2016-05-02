@@ -5,18 +5,18 @@ contract EquityCounter {
 	// Store a a mapping to BuyOffer contracts created by users
 	mapping (uint => address) public buyOffers;
 
-	uint noOfOrders;
+	uint public noOfOrders;
 
-	string counter;
+	string public counter;
 
-	address owner;
+	address public owner;
 
-	address supervisor;
+	address public supervisor;
 
-	uint totalShares;
+	uint public totalShares;
 
 	// IIPL creates the EquityCounter which is tied to the address of the owner
-	function EquityCounter(string _counter, address _owner, uint _totalShares) {
+	function EquityCounter(string _counter, address _owner, uint _totalShares) returns (bool success) {
 		noOfOrders = 0;
 
 		counter = _counter;
@@ -25,22 +25,26 @@ contract EquityCounter {
 		totalShares = _totalShares;
 
 		stockAccounts[_owner] = _totalShares;
-		
+
+		returns true;
 	}
 
 	// Add a new BuyOrder into the list
-	function linkBuyContract(address _address) {
+	function linkBuyContract(address _address) returns (bool success) {
 		BuyOffer con = BuyOffer(_address);
 		buyOffers[noOfOrders] = BuyOffer(_address);
 		noOfOrders += 1;
+		return true;
 	}
 
 	// Issue new shares to an account
-	function issueShares(address _sendee, uint _noOfShares) {
+	function issueShares(address _sendee, uint _noOfShares) returns (bool success) {
 		if (msg.sender == owner) {
 			stockAccounts[_sendee] += _noOfShares;
 			totalShares += _noOfShares;
+			return true;
 		}
+		return false;
 	}
 	
 	// Transfer shares from own account into another account
@@ -81,7 +85,7 @@ contract BuyOffer {
 	bool public withdrawn;
 
 	// Initialize BuyOffer, buyer creates a contract at some address on the Ethereum blockchain
-	function BuyOffer(uint _noOfShares, uint _pricePerShare, address _equityCounter) {
+	function BuyOffer(uint _noOfShares, uint _pricePerShare, address _equityCounter) returns (bool success) {
 		buyer = msg.sender;
 		noOfShares = _noOfShares;
 		pricePerShare = _pricePerShare;
@@ -92,22 +96,27 @@ contract BuyOffer {
 		withdrawn = false;
 		
 		EquityCounter con = EquityCounter(equityCounter);
-		con.linkBuyContract(this);
+		if (con.linkBuyContract(this)) {
+			return true;
+		}
+		return false;
 	}
 	
 	// Seller takes the BuyOffer to reserve it
-	function takeBuyOffer() {
+	function takeBuyOffer() returns (bool success) {
 		if (!taken && !withdrawn) {
 			EquityCounter con = EquityCounter(equityCounter);
 			if (con.getStockBalance(msg.sender) >= noOfShares) {
 				seller = msg.sender;
 				taken = true;
+				return true;
 			}
 		}
+		return false;
 	}
 	
 	// Buyer completes the BuyOffer, resulting in ether for shares transfer
-	function completeBuyOffer() {
+	function completeBuyOffer() returns (bool success) {
 		if (msg.sender == buyer) {
 			// Buyer needs to transfer 3% extra as transaction fees
 			if(taken && msg.value >= (noOfShares * pricePerShare * 103 / 100 )) {
@@ -116,17 +125,21 @@ contract BuyOffer {
 					// Transfer money if transfer of shares is successful
 					seller.send(noOfShares * pricePerShare);
 					done = true;
+					return true;
 				} 
 			}
 		}
+		return false;
 	}
 	
-	// Buyer can withdraw the BuyOffer
-	function withdraw() {
+	// Buyer can withdraw the BuyOffer if it is not taken
+	function withdraw() returns (bool success) {
 		if (msg.sender == buyer) {
 			if (!taken) {
 				withdrawn = true;
+				return true;
 			}
 		}
+		return false;
 	}
 }
